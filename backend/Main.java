@@ -21,7 +21,7 @@ public class Main {
         server.createContext("/habits", exchange -> {
             
             exchange.getResponseHeaders().add("Access-Control-Allow-Origin", "*");
-            exchange.getResponseHeaders().add("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+            exchange.getResponseHeaders().add("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
             exchange.getResponseHeaders().add("Access-Control-Allow-Headers", "Content-Type");
 
             if ("OPTIONS".equals(exchange.getRequestMethod())) {
@@ -63,6 +63,35 @@ public class Main {
                 Files.writeString(DB_FILE, oldData + newHabit);
 
                 exchange.sendResponseHeaders(201, -1);
+            } else if ("DELETE".equals(exchange.getRequestMethod())) {
+                String query = exchange.getRequestURI().getQuery();
+                if (query != null && query.contains("id=")) {
+                    try {
+                        String idStr = query.split("id=")[1].split("&")[0];
+                        long idToDelete = Long.parseLong(idStr);
+                        
+                        String data = Files.readString(DB_FILE);
+                        java.util.List<String> objects = new java.util.ArrayList<>();
+                        java.util.regex.Matcher m = java.util.regex.Pattern.compile("\\{.*?\\}").matcher(data);
+                        
+                        while (m.find()) {
+                            String obj = m.group();
+                            if (!obj.replaceAll("\\s", "").contains("\"id\":" + idToDelete + ",")) {
+                                objects.add(obj);
+                            }
+                        }
+                        
+                        String newData = "[" + String.join(",", objects) + "]";
+                        Files.writeString(DB_FILE, newData);
+                        
+                        exchange.sendResponseHeaders(200, -1);
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                        exchange.sendResponseHeaders(500, -1);
+                    }
+                } else {
+                    exchange.sendResponseHeaders(400, -1);
+                }
             } else {
                 exchange.sendResponseHeaders(405, -1);
             }
